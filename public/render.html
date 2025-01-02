@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Minecraft Skin Renderer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+        #skin_container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.156.1/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/skinview3d@3.0.1/bundles/skinview3d.bundle.js"></script>
+</head>
+<body>
+    <canvas id="skin_container"></canvas>
+    <script>
+        console.log('开始加载脚本');
+        
+        try {
+            console.log('SkinViewer 模块加载成功');
+
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const skinUrl = urlParams.get('skin');
+            const capeUrl = urlParams.get('cape');
+            const angle = parseFloat(urlParams.get('angle')) || 0;
+            const angleY = parseFloat(urlParams.get('angleY')) || 30; // 默认30度俯视角
+
+            console.log('参数:', { skinUrl, capeUrl, angle, angleY });
+
+            // 创建查看器
+            const skinViewer = new skinview3d.SkinViewer({
+                canvas: document.getElementById("skin_container"),
+                width: window.innerWidth,
+                height: window.innerHeight
+            });
+
+            console.log('SkinViewer 实例创建成功');
+
+            // 调整光照
+            skinViewer.renderer.outputColorSpace = THREE.SRGBColorSpace;
+            skinViewer.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            skinViewer.renderer.toneMappingExposure = 0.6; // 降低曝光
+
+            // 根据 URL 参数设置相机位置和角度
+            const angleRad = (angle * Math.PI) / 180; // 水平角度转弧度
+            const angleYRad = (angleY * Math.PI) / 180; // 垂直角度转弧度
+            const cameraDistance = 60; // 减小相机距离
+
+            // 计算相机位置（球坐标系转笛卡尔坐标系）
+            const horizontalDistance = cameraDistance * Math.cos(angleYRad);
+            const cameraX = horizontalDistance * Math.cos(angleRad);
+            const cameraY = cameraDistance * Math.sin(angleYRad);
+            const cameraZ = horizontalDistance * Math.sin(angleRad);
+            
+            // 设置相机位置和视点
+            skinViewer.camera.position.set(cameraX, cameraY, cameraZ);
+            skinViewer.camera.lookAt(0, 15, 0);
+
+            // 确保相机上方向正确
+            skinViewer.camera.up.set(0, 1, 0);
+
+            // 调整光照以跟随相机位置
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // 降低环境光强度
+            skinViewer.scene.add(ambientLight);
+
+            // 主光源跟随相机
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.2); // 降低主光源强度
+            mainLight.position.set(cameraX, cameraY + 20, cameraZ); // 调整主光源位置
+            skinViewer.scene.add(mainLight);
+
+            // 补充光源从对面照射
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3); // 降低补光强度
+            fillLight.position.set(-cameraX, cameraY + 10, -cameraZ); // 调整补光位置
+            skinViewer.scene.add(fillLight);
+
+            // 设置渲染完成标志
+            window.renderComplete = false;
+
+            // 加载皮肤
+            const skinImage = new Image();
+            skinImage.crossOrigin = "anonymous";
+            skinImage.src = skinUrl;
+
+            skinImage.onload = async () => {
+                try {
+                    console.log('皮肤图片加载成功');
+                    await skinViewer.loadSkin(skinImage);
+                    console.log('皮肤加载到查看器成功');
+
+                    // 如果提供了披风URL，加载披风
+                    if (capeUrl) {
+                        const capeImage = new Image();
+                        capeImage.crossOrigin = "anonymous";
+                        capeImage.src = capeUrl;
+
+                        capeImage.onload = async () => {
+                            try {
+                                console.log('披风图片加载成功');
+                                await skinViewer.loadCape(capeImage);
+                                console.log('披风加载到查看器成功');
+                                await finishSetup();
+                            } catch (error) {
+                                console.error('披风加载到查看器失败:', error);
+                                await finishSetup();
+                            }
+                        };
+
+                        capeImage.onerror = async (error) => {
+                            console.error('披风图片加载失败:', error);
+                            await finishSetup();
+                        };
+                    } else {
+                        await finishSetup();
+                    }
+                } catch (error) {
+                    console.error('皮肤加载到查看器失败:', error);
+                    throw error;
+                }
+            };
+
+            skinImage.onerror = (error) => {
+                console.error('皮肤图片加载失败:', error);
+                throw error;
+            };
+
+            async function finishSetup() {
+                try {
+                    // 设置透明背景
+                    skinViewer.background = null;
+
+                    // 优化渲染设置
+                    skinViewer.fov = 70;
+                    skinViewer.zoom = 0.9;
+
+                    // 强制渲染一帧
+                    skinViewer.render();
+                    console.log('渲染完成');
+                    window.renderComplete = true;
+                    console.log('设置完成，渲染标志已设置');
+                } catch (error) {
+                    console.error('设置完成时出错:', error);
+                    throw error;
+                }
+            }
+        } catch (error) {
+            console.error('初始化过程出错:', error);
+            throw error;
+        }
+    </script>
+</body>
+</html> 
