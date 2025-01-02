@@ -13,7 +13,7 @@ function installLinuxDependencies() {
         let installCommand;
         try {
             execSync('which apt-get', { stdio: 'ignore' });
-            installCommand = 'apt-get update && apt-get install -y chromium-browser ' +
+            installCommand = 'apt-get update && apt-get install -y chromium ' +
                 'libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 ' +
                 'libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 ' +
                 'libgbm1 libasound2';
@@ -45,7 +45,7 @@ function installLinuxDependencies() {
 
         // 验证安装
         try {
-            execSync('which chromium-browser || which chromium', { stdio: 'ignore' });
+            execSync('which chromium || which chromium-browser', { stdio: 'ignore' });
             console.log('Chrome/Chromium 安装验证成功！');
         } catch (error) {
             console.warn('警告：未能检测到 Chrome/Chromium，请确保浏览器已正确安装。');
