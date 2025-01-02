@@ -4,11 +4,34 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const fetch = require('node-fetch');
 const path = require('path');
+const fs = require('fs');
+
+// 获取Chrome可执行文件路径
+function getChromePath() {
+    if (process.platform === 'win32') {
+        const paths = [
+            process.env.PUPPETEER_EXECUTABLE_PATH,
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+            process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
+            process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe',
+        ].filter(Boolean);
+
+        for (const path of paths) {
+            if (fs.existsSync(path)) {
+                return path;
+            }
+        }
+        throw new Error('未找到Chrome浏览器，请安装Chrome或在环境变量中指定PUPPETEER_EXECUTABLE_PATH');
+    }
+    return process.env.PUPPETEER_EXECUTABLE_PATH || '(Default)';
+}
 
 // 配置
 const config = {
     port: process.env.PORT || 3000,
-    host: process.platform === 'win32' ? 'localhost' : (process.env.HOST || '0.0.0.0'),
+    host: process.env.HOST || 'localhost',
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000,
     renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 60000,
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
@@ -18,7 +41,7 @@ const config = {
         '--disable-setuid-sandbox',
         '--disable-gpu'
     ],
-    puppeteerPath: process.env.PUPPETEER_EXECUTABLE_PATH || '(Default)'
+    puppeteerPath: getChromePath()
 };
 
 console.log('Configuration:', config);
@@ -117,7 +140,7 @@ app.get('/render', async (req, res) => {
 
         console.log('正在启动浏览器...');
         browser = await puppeteer.launch({
-            executablePath: config.puppeteerPath === '(Default)' ? undefined : config.puppeteerPath,
+            executablePath: config.puppeteerPath,
             args: process.platform === 'linux' ? [...config.puppeteerArgs, '--disable-dev-shm-usage'] : config.puppeteerArgs,
             headless: 'new'
         });
@@ -131,7 +154,7 @@ app.get('/render', async (req, res) => {
         page.on('pageerror', err => console.error('页面JS错误:', err));
 
         // 构建URL
-        const renderUrl = new URL('render.html', `http://localhost:${config.port}`);
+        const renderUrl = new URL('render.html', `http://127.0.0.1:${config.port}`);
         renderUrl.searchParams.set('skin', skinUrl);
         if (capeUrl) renderUrl.searchParams.set('cape', capeUrl);
         renderUrl.searchParams.set('angle', angle.toString());
@@ -185,8 +208,8 @@ app.get('/render', async (req, res) => {
 });
 
 // 启动服务器
-const host = process.platform === 'win32' ? 'localhost' : config.host;
-app.listen(config.port, host, () => {
-    console.log(`服务器运行在 ${host}:${config.port}`);
-    console.log(`访问地址: http://${host}:${config.port}`);
+app.listen(config.port, () => {
+    console.log(`服务器运行在端口 ${config.port}`);
+    console.log(`访问地址: http://localhost:${config.port}`);
+    console.log(`         http://127.0.0.1:${config.port}`);
 }); 
