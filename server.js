@@ -24,6 +24,21 @@ function getChromePath() {
             }
         }
         throw new Error('未找到Chrome浏览器，请安装Chrome或在环境变量中指定PUPPETEER_EXECUTABLE_PATH');
+    } else if (process.platform === 'linux') {
+        const paths = [
+            process.env.PUPPETEER_EXECUTABLE_PATH,
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable'
+        ].filter(Boolean);
+
+        for (const path of paths) {
+            if (fs.existsSync(path)) {
+                return path;
+            }
+        }
+        throw new Error('未找到Chrome/Chromium浏览器，请安装或在环境变量中指定PUPPETEER_EXECUTABLE_PATH');
     }
     return process.env.PUPPETEER_EXECUTABLE_PATH || '(Default)';
 }
