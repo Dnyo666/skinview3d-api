@@ -54,7 +54,8 @@ const config = {
     puppeteerArgs: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-software-rasterizer'
     ],
     puppeteerPath: getChromePath()
 };
@@ -156,7 +157,12 @@ app.get('/render', async (req, res) => {
         console.log('正在启动浏览器...');
         browser = await puppeteer.launch({
             executablePath: config.puppeteerPath,
-            args: process.platform === 'linux' ? [...config.puppeteerArgs, '--disable-dev-shm-usage'] : config.puppeteerArgs,
+            args: process.platform === 'linux' ? [
+                ...config.puppeteerArgs,
+                '--disable-dev-shm-usage',
+                '--no-zygote',
+                '--single-process'
+            ] : config.puppeteerArgs,
             headless: 'new'
         });
 
@@ -169,7 +175,7 @@ app.get('/render', async (req, res) => {
         page.on('pageerror', err => console.error('页面JS错误:', err));
 
         // 构建URL
-        const renderUrl = new URL('render.html', `http://127.0.0.1:${config.port}`);
+        const renderUrl = new URL('render.html', `http://localhost:${config.port}`);
         renderUrl.searchParams.set('skin', skinUrl);
         if (capeUrl) renderUrl.searchParams.set('cape', capeUrl);
         renderUrl.searchParams.set('angle', angle.toString());
@@ -179,16 +185,26 @@ app.get('/render', async (req, res) => {
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);
 
-        try {
-            await page.goto(renderUrl.toString(), { 
-                waitUntil: ['networkidle0', 'load'],
-                timeout: 60000
+        // 设置页面内容
+        const htmlContent = await fs.promises.readFile(path.join(__dirname, 'public', 'render.html'), 'utf8');
+        await page.setContent(htmlContent, {
+            waitUntil: ['networkidle0', 'load'],
+            timeout: 60000
+        });
+
+        // 设置URL参数
+        await page.evaluate((params) => {
+            const url = new URL(window.location.href);
+            Object.entries(params).forEach(([key, value]) => {
+                url.searchParams.set(key, value);
             });
-            console.log('页面加载完成');
-        } catch (error) {
-            console.error('页面加载失败:', error);
-            throw new Error('页面加载失败: ' + error.message);
-        }
+            window.history.replaceState({}, '', url.toString());
+        }, {
+            skin: skinUrl,
+            cape: capeUrl,
+            angle: angle.toString(),
+            angleY: angleY.toString()
+        });
 
         // 等待渲染完成
         console.log('等待渲染完成...');
@@ -223,8 +239,8 @@ app.get('/render', async (req, res) => {
 });
 
 // 启动服务器
-app.listen(config.port, () => {
-    console.log(`服务器运行在端口 ${config.port}`);
-    console.log(`访问地址: http://localhost:${config.port}`);
-    console.log(`         http://127.0.0.1:${config.port}`);
+const host = process.env.HOST || 'localhost';
+app.listen(config.port, host, () => {
+    console.log(`服务器运行在 ${host}:${config.port}`);
+    console.log(`本地访问地址: http://localhost:${config.port}`);
 }); 
