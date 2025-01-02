@@ -8,6 +8,7 @@ const path = require('path');
 // 配置
 const config = {
     port: process.env.PORT || 3000,
+    host: process.env.HOST || 'localhost',
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000, // 10分钟
     renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 1000,
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
@@ -130,20 +131,29 @@ app.get('/render', async (req, res) => {
         page.on('pageerror', err => console.error('页面JS错误:', err));
 
         // 构建URL
-        const url = new URL('render.html', `http://localhost:${config.port}`);
-        url.searchParams.set('skin', skinUrl);
-        if (capeUrl) url.searchParams.set('cape', capeUrl);
-        url.searchParams.set('angle', angle.toString());
-        url.searchParams.set('angleY', angleY.toString());
+        const serverUrl = `http://${config.host}:${config.port}`;
+        const pageUrl = new URL('render.html', serverUrl);
+        pageUrl.searchParams.set('skin', skinUrl);
+        if (capeUrl) pageUrl.searchParams.set('cape', capeUrl);
+        pageUrl.searchParams.set('angle', angle.toString());
+        pageUrl.searchParams.set('angleY', angleY.toString());
 
         console.log('正在加载页面...');
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);
-        await page.goto(url.toString(), { 
-            waitUntil: ['networkidle0', 'load'],
-            timeout: 60000
-        });
-        console.log('页面加载完成');
+
+        // 等待页面加载
+        try {
+            await page.goto(pageUrl.toString(), { 
+                waitUntil: ['networkidle0', 'load'],
+                timeout: 60000
+            });
+            console.log('页面加载完成');
+        } catch (error) {
+            console.error('页面加载失败:', error);
+            await browser.close();
+            throw new Error('页面加载超时，请检查网络连接');
+        }
 
         // 等待渲染元素
         console.log('等待渲染元素...');
@@ -193,6 +203,6 @@ app.get('/render', async (req, res) => {
 });
 
 // 启动服务器
-app.listen(config.port, () => {
-    console.log(`服务器运行在端口 ${config.port}`);
+app.listen(config.port, config.host, () => {
+    console.log(`服务器运行在 ${config.host}:${config.port}`);
 }); 
