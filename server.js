@@ -46,7 +46,7 @@ function getChromePath() {
 // 配置
 const config = {
     port: process.env.PORT || 3000,
-    host: process.env.HOST || 'localhost',
+    host: process.env.HOST || '0.0.0.0',
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000,
     renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 60000,
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
@@ -55,7 +55,10 @@ const config = {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-gpu',
-        '--disable-software-rasterizer'
+        '--disable-software-rasterizer',
+        '--use-gl=swiftshader',
+        '--enable-webgl',
+        '--ignore-gpu-blacklist'
     ],
     puppeteerPath: getChromePath()
 };
@@ -163,7 +166,8 @@ app.get('/render', async (req, res) => {
                 '--no-zygote',
                 '--single-process'
             ] : config.puppeteerArgs,
-            headless: 'new'
+            headless: 'new',
+            ignoreDefaultArgs: ['--disable-gpu']
         });
 
         console.log('正在创建页面...');
@@ -188,7 +192,7 @@ app.get('/render', async (req, res) => {
         // 设置页面内容
         const htmlContent = await fs.promises.readFile(path.join(__dirname, 'public', 'render.html'), 'utf8');
         await page.setContent(htmlContent, {
-            waitUntil: ['networkidle0', 'load'],
+            waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
             timeout: 60000
         });
 
@@ -208,11 +212,16 @@ app.get('/render', async (req, res) => {
 
         // 等待渲染完成
         console.log('等待渲染完成...');
-        await page.waitForFunction('window.renderComplete === true', { 
-            timeout: config.renderTimeout,
-            polling: 100
-        });
-        console.log('渲染完成');
+        try {
+            await page.waitForFunction('window.renderComplete === true', { 
+                timeout: config.renderTimeout,
+                polling: 100
+            });
+            console.log('渲染完成');
+        } catch (error) {
+            console.error('渲染超时或失败:', error);
+            throw new Error('渲染超时或失败: ' + error.message);
+        }
 
         // 截图
         console.log('正在截图...');
@@ -239,8 +248,12 @@ app.get('/render', async (req, res) => {
 });
 
 // 启动服务器
-const host = process.env.HOST || 'localhost';
-app.listen(config.port, host, () => {
-    console.log(`服务器运行在 ${host}:${config.port}`);
-    console.log(`本地访问地址: http://localhost:${config.port}`);
+app.listen(config.port, config.host, () => {
+    console.log(`服务器运行在 ${config.host}:${config.port}`);
+    if (config.host === '0.0.0.0') {
+        console.log(`本地访问地址: http://localhost:${config.port}`);
+        console.log(`局域网访问地址: http://${require('os').hostname()}:${config.port}`);
+    } else {
+        console.log(`访问地址: http://${config.host}:${config.port}`);
+    }
 }); 
