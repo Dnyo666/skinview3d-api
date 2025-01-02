@@ -46,13 +46,18 @@ http://your-domain.com/render?skin=https://example.com/skin.png&width=300&height
 npm install
 ```
 
-2. 配置环境变量：
+2. 构建项目
+```bash
+npm run build
+```
+
+3. 配置环境变量：
 ```bash
 # .env 文件会在安装时自动从 .env.example 创建
 vim .env
 ```
 
-3. 启动服务器：
+4. 启动服务器：
 ```bash
 npm start
 ```
