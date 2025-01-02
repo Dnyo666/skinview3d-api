@@ -8,9 +8,9 @@ const path = require('path');
 // 配置
 const config = {
     port: process.env.PORT || 3000,
-    host: process.env.HOST || 'localhost',
-    cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000, // 10分钟
-    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 1000,
+    host: process.platform === 'win32' ? 'localhost' : (process.env.HOST || '0.0.0.0'),
+    cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000,
+    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 60000,
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
     defaultHeight: parseInt(process.env.DEFAULT_HEIGHT) || 400,
     puppeteerArgs: [
@@ -81,7 +81,7 @@ async function getSkinByUUID(uuid) {
 const app = express();
 
 // 静态文件服务
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -93,11 +93,11 @@ app.get('/render', async (req, res) => {
     const startTime = Date.now();
     console.log('收到渲染请求:', req.query);
 
+    let browser;
     try {
         let skinUrl = req.query.skin;
         let capeUrl = req.query.cape;
 
-        // 如果提供了 UUID，获取对应的皮肤
         if (req.query.uuid) {
             const skinData = await getSkinByUUID(req.query.uuid);
             skinUrl = skinData.skin;
@@ -116,7 +116,7 @@ app.get('/render', async (req, res) => {
         const angleY = parseFloat(req.query.angleY) || 30;
 
         console.log('正在启动浏览器...');
-        const browser = await puppeteer.launch({
+        browser = await puppeteer.launch({
             executablePath: config.puppeteerPath === '(Default)' ? undefined : config.puppeteerPath,
             args: process.platform === 'linux' ? [...config.puppeteerArgs, '--disable-dev-shm-usage'] : config.puppeteerArgs,
             headless: 'new'
@@ -131,54 +131,34 @@ app.get('/render', async (req, res) => {
         page.on('pageerror', err => console.error('页面JS错误:', err));
 
         // 构建URL
-        const serverUrl = `http://${config.host}:${config.port}`;
-        const pageUrl = new URL('render.html', serverUrl);
-        pageUrl.searchParams.set('skin', skinUrl);
-        if (capeUrl) pageUrl.searchParams.set('cape', capeUrl);
-        pageUrl.searchParams.set('angle', angle.toString());
-        pageUrl.searchParams.set('angleY', angleY.toString());
+        const renderUrl = new URL('render.html', `http://localhost:${config.port}`);
+        renderUrl.searchParams.set('skin', skinUrl);
+        if (capeUrl) renderUrl.searchParams.set('cape', capeUrl);
+        renderUrl.searchParams.set('angle', angle.toString());
+        renderUrl.searchParams.set('angleY', angleY.toString());
 
-        console.log('正在加载页面...');
+        console.log('正在加载页面...', renderUrl.toString());
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);
 
-        // 等待页面加载
         try {
-            await page.goto(pageUrl.toString(), { 
+            await page.goto(renderUrl.toString(), { 
                 waitUntil: ['networkidle0', 'load'],
                 timeout: 60000
             });
             console.log('页面加载完成');
         } catch (error) {
             console.error('页面加载失败:', error);
-            await browser.close();
-            throw new Error('页面加载超时，请检查网络连接');
+            throw new Error('页面加载失败: ' + error.message);
         }
-
-        // 等待渲染元素
-        console.log('等待渲染元素...');
-        await page.waitForSelector('#skin_container', { timeout: 60000 });
-        console.log('渲染元素已就绪');
 
         // 等待渲染完成
         console.log('等待渲染完成...');
-        await page.evaluate(async (timeout) => {
-            return new Promise((resolve, reject) => {
-                let startTime = Date.now();
-                let checkInterval = setInterval(() => {
-                    if (window.renderComplete) {
-                        clearInterval(checkInterval);
-                        resolve();
-                    } else if (Date.now() - startTime > timeout) {
-                        clearInterval(checkInterval);
-                        reject(new Error('渲染超时'));
-                    }
-                }, 100);
-            });
-        }, config.renderTimeout);
-
-        // 等待一帧以确保渲染完成
-        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        await page.waitForFunction('window.renderComplete === true', { 
+            timeout: config.renderTimeout,
+            polling: 100
+        });
+        console.log('渲染完成');
 
         // 截图
         console.log('正在截图...');
@@ -186,8 +166,6 @@ app.get('/render', async (req, res) => {
             type: 'png',
             omitBackground: true
         });
-
-        await browser.close();
 
         const endTime = Date.now();
         console.log(`渲染完成，耗时 ${endTime - startTime}ms`);
@@ -199,10 +177,16 @@ app.get('/render', async (req, res) => {
             error: error.message,
             details: error.stack
         });
+    } finally {
+        if (browser) {
+            await browser.close().catch(console.error);
+        }
     }
 });
 
 // 启动服务器
-app.listen(config.port, config.host, () => {
-    console.log(`服务器运行在 ${config.host}:${config.port}`);
+const host = process.platform === 'win32' ? 'localhost' : config.host;
+app.listen(config.port, host, () => {
+    console.log(`服务器运行在 ${host}:${config.port}`);
+    console.log(`访问地址: http://${host}:${config.port}`);
 }); 
