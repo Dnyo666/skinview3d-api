@@ -4,6 +4,28 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-yellowgreen.svg?style=flat-square)](https://github.com/bs-community/skinview3d/blob/master/LICENSE)
 
+## 系统要求
+
+- Node.js >= 14.0.0
+- 如果在 Linux 系统上运行，需要安装 Chrome 的依赖库（会在 `npm install` 时自动安装）
+- 如果自动安装失败，需要手动安装以下依赖：
+
+  Debian/Ubuntu:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y \
+      libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+      libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+      libxrandr2 libgbm1 libasound2
+  ```
+
+  CentOS/RHEL:
+  ```bash
+  sudo yum install -y \
+      nss atk at-spi2-atk cups-libs libdrm libxkbcommon \
+      libXcomposite libXdamage libXfixes libXrandr \
+      mesa-libgbm alsa-lib
+  ```
+
 ## API 端点
 
 ### GET /render

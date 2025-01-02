@@ -10,7 +10,8 @@
 		"start": "node server.js",
 		"dev": "nodemon server.js",
 		"build": "rollup -c rollup.config.js",
-		"clean": "rimraf public/bundles/*"
+		"clean": "rimraf public/bundles/*",
+		"postinstall": "node scripts/install-deps.js"
 	},
 	"dependencies": {
 		"dotenv": "^16.3.1",
