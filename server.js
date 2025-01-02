@@ -9,10 +9,10 @@ const path = require('path');
 const config = {
     port: process.env.PORT || 3000,
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000, // 10分钟
-    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 10000, // 10秒
+    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 60000, // 增加到 60 秒
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
     defaultHeight: parseInt(process.env.DEFAULT_HEIGHT) || 400,
-    puppeteerArgs: (process.env.PUPPETEER_ARGS || '--no-sandbox,--disable-setuid-sandbox').split(','),
+    puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
     puppeteerPath: process.env.PUPPETEER_EXECUTABLE_PATH || '(Default)'
 };
 
@@ -133,12 +133,15 @@ app.get('/render', async (req, res) => {
         url.searchParams.set('angleY', angleY.toString());
 
         console.log('正在加载页面...');
-        await page.goto(url.toString(), { waitUntil: 'networkidle0' });
+        await page.goto(url.toString(), { 
+            waitUntil: ['networkidle0', 'load'],
+            timeout: 60000  // 增加超时时间到 60 秒
+        });
         console.log('页面加载完成');
 
         // 等待渲染元素
         console.log('等待渲染元素...');
-        await page.waitForSelector('#skin_container');
+        await page.waitForSelector('#skin_container', { timeout: 60000 });
         console.log('渲染元素已就绪');
 
         // 等待渲染完成
