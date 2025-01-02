@@ -9,10 +9,14 @@ const path = require('path');
 const config = {
     port: process.env.PORT || 3000,
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000, // 10分钟
-    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 60000, // 增加到 60 秒
+    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 1000,
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
     defaultHeight: parseInt(process.env.DEFAULT_HEIGHT) || 400,
-    puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
+    puppeteerArgs: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-gpu'
+    ],
     puppeteerPath: process.env.PUPPETEER_EXECUTABLE_PATH || '(Default)'
 };
 
@@ -113,7 +117,7 @@ app.get('/render', async (req, res) => {
         console.log('正在启动浏览器...');
         const browser = await puppeteer.launch({
             executablePath: config.puppeteerPath === '(Default)' ? undefined : config.puppeteerPath,
-            args: config.puppeteerArgs,
+            args: process.platform === 'linux' ? [...config.puppeteerArgs, '--disable-dev-shm-usage'] : config.puppeteerArgs,
             headless: 'new'
         });
 
@@ -133,9 +137,11 @@ app.get('/render', async (req, res) => {
         url.searchParams.set('angleY', angleY.toString());
 
         console.log('正在加载页面...');
+        await page.setDefaultNavigationTimeout(60000);
+        await page.setDefaultTimeout(60000);
         await page.goto(url.toString(), { 
             waitUntil: ['networkidle0', 'load'],
-            timeout: 60000  // 增加超时时间到 60 秒
+            timeout: 60000
         });
         console.log('页面加载完成');
 

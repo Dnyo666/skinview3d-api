@@ -13,11 +13,16 @@ function installLinuxDependencies() {
         let installCommand;
         try {
             execSync('which apt-get', { stdio: 'ignore' });
-            installCommand = 'apt-get update && apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2';
+            installCommand = 'apt-get update && apt-get install -y chromium-browser ' +
+                'libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 ' +
+                'libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 ' +
+                'libgbm1 libasound2';
         } catch {
             try {
                 execSync('which yum', { stdio: 'ignore' });
-                installCommand = 'yum install -y nss atk at-spi2-atk cups-libs libdrm libxkbcommon libXcomposite libXdamage libXfixes libXrandr mesa-libgbm alsa-lib';
+                installCommand = 'yum install -y chromium chromium-headless chromium-libs ' +
+                    'nss atk at-spi2-atk cups-libs libdrm libxkbcommon ' +
+                    'libXcomposite libXdamage libXfixes libXrandr mesa-libgbm alsa-lib';
             } catch {
                 console.warn('未检测到支持的包管理器（apt-get/yum），请手动安装依赖。');
                 return;
@@ -37,6 +42,14 @@ function installLinuxDependencies() {
         console.log('正在安装系统依赖...');
         execSync(installCommand, { stdio: 'inherit' });
         console.log('系统依赖安装完成！');
+
+        // 验证安装
+        try {
+            execSync('which chromium-browser || which chromium', { stdio: 'ignore' });
+            console.log('Chrome/Chromium 安装验证成功！');
+        } catch (error) {
+            console.warn('警告：未能检测到 Chrome/Chromium，请确保浏览器已正确安装。');
+        }
 
     } catch (error) {
         console.error('安装依赖时出错：', error.message);
