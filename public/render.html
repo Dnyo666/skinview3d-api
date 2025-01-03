@@ -15,7 +15,7 @@
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.156.1/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/skinview3d@3.0.1/bundles/skinview3d.bundle.js"></script>
+    <script src="/bundles/skinview3d.bundle.js"></script>
 </head>
 <body>
     <canvas id="skin_container"></canvas>
@@ -25,21 +25,21 @@
         // 等待 skinview3d 加载完成
         function waitForSkinview3d() {
             return new Promise((resolve, reject) => {
-                if (window.skinview3d) {
+                if (window.skinview3d && window.skinview3d.SkinViewer) {
                     resolve();
                 } else {
                     const checkInterval = setInterval(() => {
-                        if (window.skinview3d) {
+                        if (window.skinview3d && window.skinview3d.SkinViewer) {
                             clearInterval(checkInterval);
                             resolve();
                         }
                     }, 100);
 
-                    // 10秒后超时
+                    // 30秒后超时
                     setTimeout(() => {
                         clearInterval(checkInterval);
                         reject(new Error('加载 skinview3d 超时'));
-                    }, 10000);
+                    }, 30000);
                 }
             });
         }
@@ -59,18 +59,13 @@
                 console.log('参数:', { skinUrl, capeUrl, angle, angleY });
 
                 // 创建查看器
-                const skinViewer = new skinview3d.SkinViewer({
+                const skinViewer = new window.skinview3d.SkinViewer({
                     canvas: document.getElementById("skin_container"),
                     width: window.innerWidth,
                     height: window.innerHeight
                 });
 
                 console.log('SkinViewer 实例创建成功');
-
-                // 调整光照
-                skinViewer.renderer.outputColorSpace = THREE.SRGBColorSpace;
-                skinViewer.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                skinViewer.renderer.toneMappingExposure = 0.6;
 
                 // 根据 URL 参数设置相机位置和角度
                 const angleRad = (angle * Math.PI) / 180;
@@ -85,18 +80,6 @@
                 skinViewer.camera.position.set(cameraX, cameraY, cameraZ);
                 skinViewer.camera.lookAt(0, 15, 0);
                 skinViewer.camera.up.set(0, 1, 0);
-
-                // 调整光照
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-                skinViewer.scene.add(ambientLight);
-
-                const mainLight = new THREE.DirectionalLight(0xffffff, 0.2);
-                mainLight.position.set(cameraX, cameraY + 20, cameraZ);
-                skinViewer.scene.add(mainLight);
-
-                const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-                fillLight.position.set(-cameraX, cameraY + 10, -cameraZ);
-                skinViewer.scene.add(fillLight);
 
                 // 设置渲染完成标志
                 window.renderComplete = false;

@@ -1,10 +1,8 @@
-const skinview3d = require('skinview3d');
+import * as THREE from 'three';
+import { SkinViewer, PlayerObject } from 'skinview3d';
 
-module.exports = {
-    SkinViewer: skinview3d.SkinViewer,
-    PlayerObject: skinview3d.PlayerObject,
-    createOrbitControls: skinview3d.createOrbitControls,
-    WalkingAnimation: skinview3d.WalkingAnimation,
-    RunningAnimation: skinview3d.RunningAnimation,
-    FlyingAnimation: skinview3d.FlyingAnimation
+export {
+    SkinViewer,
+    PlayerObject,
+    THREE
 }; 

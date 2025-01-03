@@ -48,19 +48,14 @@ const config = {
     port: process.env.PORT || 3000,
     host: process.env.HOST || '0.0.0.0',
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 600000,
-    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 60000,
+    renderTimeout: parseInt(process.env.RENDER_TIMEOUT) || 1000,
     defaultWidth: parseInt(process.env.DEFAULT_WIDTH) || 300,
     defaultHeight: parseInt(process.env.DEFAULT_HEIGHT) || 400,
     puppeteerArgs: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--use-gl=swiftshader',
-        '--enable-webgl',
-        '--ignore-gpu-blacklist'
-    ],
-    puppeteerPath: getChromePath()
+        '--disable-gpu'
+    ]
 };
 
 console.log('Configuration:', config);
@@ -159,15 +154,8 @@ app.get('/render', async (req, res) => {
 
         console.log('正在启动浏览器...');
         browser = await puppeteer.launch({
-            executablePath: config.puppeteerPath,
-            args: process.platform === 'linux' ? [
-                ...config.puppeteerArgs,
-                '--disable-dev-shm-usage',
-                '--no-zygote',
-                '--single-process'
-            ] : config.puppeteerArgs,
-            headless: 'new',
-            ignoreDefaultArgs: ['--disable-gpu']
+            args: process.platform === 'linux' ? [...config.puppeteerArgs, '--disable-dev-shm-usage'] : config.puppeteerArgs,
+            headless: 'new'
         });
 
         console.log('正在创建页面...');
@@ -189,39 +177,36 @@ app.get('/render', async (req, res) => {
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);
 
-        // 设置页面内容
-        const htmlContent = await fs.promises.readFile(path.join(__dirname, 'public', 'render.html'), 'utf8');
-        await page.setContent(htmlContent, {
-            waitUntil: ['networkidle0', 'load', 'domcontentloaded'],
+        await page.goto(renderUrl.toString(), { 
+            waitUntil: ['networkidle0', 'load'],
             timeout: 60000
         });
+        console.log('页面加载完成');
 
-        // 设置URL参数
-        await page.evaluate((params) => {
-            const url = new URL(window.location.href);
-            Object.entries(params).forEach(([key, value]) => {
-                url.searchParams.set(key, value);
-            });
-            window.history.replaceState({}, '', url.toString());
-        }, {
-            skin: skinUrl,
-            cape: capeUrl,
-            angle: angle.toString(),
-            angleY: angleY.toString()
-        });
+        // 等待渲染元素
+        console.log('等待渲染元素...');
+        await page.waitForSelector('#skin_container', { timeout: 60000 });
+        console.log('渲染元素已就绪');
 
         // 等待渲染完成
         console.log('等待渲染完成...');
-        try {
-            await page.waitForFunction('window.renderComplete === true', { 
-                timeout: config.renderTimeout,
-                polling: 100
+        await page.evaluate(async (timeout) => {
+            return new Promise((resolve, reject) => {
+                let startTime = Date.now();
+                let checkInterval = setInterval(() => {
+                    if (window.renderComplete) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    } else if (Date.now() - startTime > timeout) {
+                        clearInterval(checkInterval);
+                        reject(new Error('渲染超时'));
+                    }
+                }, 100);
             });
-            console.log('渲染完成');
-        } catch (error) {
-            console.error('渲染超时或失败:', error);
-            throw new Error('渲染超时或失败: ' + error.message);
-        }
+        }, config.renderTimeout);
+
+        // 等待一帧以确保渲染完成
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
 
         // 截图
         console.log('正在截图...');

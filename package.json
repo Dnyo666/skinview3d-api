@@ -18,7 +18,7 @@
 		"express": "^4.18.2",
 		"node-fetch": "^2.7.0",
 		"puppeteer": "^22.8.2",
-		"skinview-utils": "^0.7.1",
+		"skinview3d": "^3.0.1",
 		"three": "^0.156.1"
 	},
 	"devDependencies": {
@@ -33,9 +33,6 @@
 		"rollup": "^4.12.0",
 		"rollup-plugin-swc3": "^0.10.3",
 		"typescript": "^5.0.4"
-	},
-	"overrides": {
-		"braces": "^3.0.3"
 	},
 	"engines": {
 		"node": ">=14.0.0"

@@ -5,17 +5,27 @@ module.exports = {
     input: 'src/bundle-entry.js',
     output: {
         file: 'public/bundles/skinview3d.bundle.js',
-        format: 'es',
+        format: 'iife',
+        name: 'skinview3d',
         sourcemap: true,
-        inlineDynamicImports: true
+        globals: {
+            'three': 'THREE'
+        }
     },
+    external: ['three'],
     plugins: [
         nodeResolve({
             browser: true,
-            preferBuiltins: false
+            preferBuiltins: false,
+            mainFields: ['browser', 'module', 'main']
         }),
         commonjs({
-            include: /node_modules/
+            include: /node_modules/,
+            transformMixedEsModules: true,
+            ignoreDynamicRequires: true,
+            namedExports: {
+                'skinview3d': ['SkinViewer', 'PlayerObject']
+            }
         })
     ]
 }; 
